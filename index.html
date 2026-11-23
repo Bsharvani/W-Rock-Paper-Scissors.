@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rock Paper Scissors</title>
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <!-- Loading Page -->
+    <div id="loading">
+        <h1>🎮 Welcome to My Game</h1>
+        <h2>✊ ✋ ✌️</h2>
+        <div class="loader"></div>
+        <h3>Loading... Please Wait</h3>
+    </div>
+
+
+    <!-- Main Game -->
+    <div id="game">
+
+        <h1>✊ Rock Paper Scissors ✌️</h1>
+        <h3>Choose Your Game Mode</h3>
+
+        <!-- Game Mode -->
+        <div class="mode">
+
+            <button onclick="setMode('two')">
+                👥 Two Players
+            </button>
+
+            <button onclick="setMode('computer')">
+                🤖 Play With Computer
+            </button>
+
+        </div>
+
+        <h2 id="modeTitle">Select Game Mode</h2>
+
+
+        <!-- Scoreboard -->
+        <div class="scoreboard">
+
+            <div class="score-card">
+                <h3>👤 Player 1</h3>
+                <h1 id="score1">0</h1>
+            </div>
+
+            <div class="score-card" id="opponentScoreCard">
+                <h3 id="opponentTitle">👤 Player 2</h3>
+                <h1 id="score2">0</h1>
+            </div>
+
+            <div class="score-card">
+                <h3>🤝 Draws</h3>
+                <h1 id="draws">0</h1>
+            </div>
+
+        </div>
+
+        <h2 id="round">Round: 0</h2>
+
+
+        <!-- Player 1 -->
+        <div class="player">
+
+            <h2>👤 Player 1</h2>
+            <h3>Choose Your Hand</h3>
+
+            <button onclick="selectChoice(1,'rock')">
+                ✊ Rock
+            </button>
+
+            <button onclick="selectChoice(1,'paper')">
+                ✋ Paper
+            </button>
+
+            <button onclick="selectChoice(1,'scissors')">
+                ✌️ Scissors
+            </button>
+
+            <h2 id="player1Choice">Waiting...</h2>
+
+        </div>
+
+
+        <!-- Player 2 -->
+        <div class="player" id="player2Section">
+
+            <h2 id="player2Title">👤 Player 2</h2>
+            <h3>Choose Your Hand</h3>
+
+            <button onclick="selectChoice(2,'rock')">
+                ✊ Rock
+            </button>
+
+            <button onclick="selectChoice(2,'paper')">
+                ✋ Paper
+            </button>
+
+            <button onclick="selectChoice(2,'scissors')">
+                ✌️ Scissors
+            </button>
+
+            <h2 id="player2Choice">Waiting...</h2>
+
+        </div>
+
+
+        <!-- Result -->
+        <h1 id="result">Select a game mode! 🎮</h1>
+
+
+        <!-- Restart -->
+        <button class="restart" onclick="restartGame()">
+            🔄 Restart Game
+        </button>
+
+    </div>
+
+
+    <script>
+
+        let mode = "";
+        let player1 = "";
+        let player2 = "";
+        let waiting = false;
+
+
+        // Loading screen
+        window.onload = function() {
+
+            setTimeout(function() {
+
+                document.getElementById("loading")
+                    .style.display = "none";
+
+                document.getElementById("game")
+                    .style.display = "block";
+
+            }, 3000);
+
+        };
+
+
+        // Select game mode
+        function setMode(selectedMode) {
+
+            mode = selectedMode;
+
+            player1 = "";
+            player2 = "";
+            waiting = false;
+
+            if (mode === "two") {
+
+                document.getElementById("modeTitle")
+                    .innerHTML = "👥 Player 1 vs Player 2";
+
+                document.getElementById("player2Title")
+                    .innerHTML = "👤 Player 2";
+
+                document.getElementById("opponentTitle")
+                    .innerHTML = "👤 Player 2";
+
+                document.getElementById("player2Section")
+                    .style.display = "block";
+
+            } else {
+
+                document.getElementById("modeTitle")
+                    .innerHTML = "🤖 Player 1 vs Computer";
+
+                document.getElementById("player2Title")
+                    .innerHTML = "🤖 Computer";
+
+                document.getElementById("opponentTitle")
+                    .innerHTML = "🤖 Computer";
+
+                document.getElementById("player2Section")
+                    .style.display = "none";
+
+            }
+
+            document.getElementById("player1Choice")
+                .innerHTML = "Waiting...";
+
+            document.getElementById("player2Choice")
+                .innerHTML = "Waiting...";
+
+            document.getElementById("result")
+                .innerHTML = "Start Playing! 🎮";
+
+            document.getElementById("score1").innerHTML = "0";
+            document.getElementById("score2").innerHTML = "0";
+            document.getElementById("draws").innerHTML = "0";
+            document.getElementById("round").innerHTML = "Round: 0";
+
+            // Reset Python scores too
+            restartScores();
+
+        }
+
+
+        // Select choice
+        function selectChoice(player, choice) {
+
+            if (mode === "") {
+                alert("Please select a game mode first!");
+                return;
+            }
+
+            if (waiting) return;
+
+            if (player === 1) {
+
+                if (player1 !== "") return;
+
+                player1 = choice;
+
+                document.getElementById("player1Choice")
+                    .innerHTML = "Player 1 selected: " + choice;
+
+            }
+
+            else if (mode === "two") {
+
+                if (player2 !== "") return;
+
+                player2 = choice;
+
+                document.getElementById("player2Choice")
+                    .innerHTML = "Player 2 selected: " + choice;
+
+            }
+
+            if (mode === "computer" && player1 !== "") {
+                playGame();
+            }
+
+            if (mode === "two" && player1 !== "" && player2 !== "") {
+                playGame();
+            }
+
+        }
+
+
+        // Play game using Python
+        async function playGame() {
+
+            waiting = true;
+
+            document.getElementById("result")
+                .innerHTML = "Checking Winner... ⏳";
+
+            try {
+
+                const response = await fetch("/play", {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        mode: mode,
+                        player1: player1,
+                        player2: player2
+
+                    })
+
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Game failed");
+                }
+
+                document.getElementById("player1Choice")
+                    .innerHTML = "Player 1: " + data.player1;
+
+                document.getElementById("player2Choice")
+                    .innerHTML = data.opponent_name + ": " + data.player2;
+
+                document.getElementById("result")
+                    .innerHTML = data.result;
+
+                document.getElementById("score1")
+                    .innerHTML = data.player1_score;
+
+                document.getElementById("score2")
+                    .innerHTML = mode === "two"
+                        ? data.player2_score
+                        : data.computer_score;
+
+                document.getElementById("draws")
+                    .innerHTML = data.draws;
+
+                document.getElementById("round")
+                    .innerHTML = "Round: " + data.round;
+
+            }
+
+            catch (error) {
+
+                document.getElementById("result")
+                    .innerHTML = error.message;
+
+            }
+
+            finally {
+
+                player1 = "";
+                player2 = "";
+                waiting = false;
+
+            }
+
+        }
+
+
+        // Reset Python scores
+        async function restartScores() {
+
+            await fetch("/restart", {
+                method: "POST"
+            });
+
+        }
+
+
+        // Restart game
+        async function restartGame() {
+
+            try {
+
+                const response = await fetch("/restart", {
+                    method: "POST"
+                });
+
+                if (!response.ok) {
+                    throw new Error("Restart failed");
+                }
+
+                player1 = "";
+                player2 = "";
+                waiting = false;
+
+                document.getElementById("score1").innerHTML = "0";
+                document.getElementById("score2").innerHTML = "0";
+                document.getElementById("draws").innerHTML = "0";
+
+                document.getElementById("round").innerHTML = "Round: 0";
+
+                document.getElementById("player1Choice")
+                    .innerHTML = "Waiting...";
+
+                document.getElementById("player2Choice")
+                    .innerHTML = "Waiting...";
+
+                document.getElementById("result")
+                    .innerHTML = "Game Restarted! 🎮";
+
+            }
+
+            catch (error) {
+
+                document.getElementById("result")
+                    .innerHTML = error.message;
+
+            }
+
+        }
+
+    </script>
+
+</body>
+</html>
