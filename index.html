@@ -72,13 +72,6 @@
         let player2 = "";
         let waiting = false;
 
-        const EMOJIS = {
-            rock: "✊",
-            paper: "✋",
-            scissors: "✌️"
-        };
-
-        // Local state used if /play backend is not running
         let localState = {
             round: 0,
             player1_score: 0,
@@ -87,35 +80,30 @@
             draws: 0
         };
 
+        const EMOJIS = {
+            rock: "✊",
+            paper: "✋",
+            scissors: "✌️"
+        };
+
         function formatChoice(choice) {
             if (!choice) return "⏳ Waiting...";
-            const key = String(choice).toLowerCase();
-            const emoji = EMOJIS[key] || "🎲";
-            const label = key.charAt(0).toUpperCase() + key.slice(1);
-            return `${emoji} ${label}`;
+            const label = choice.charAt(0).toUpperCase() + choice.slice(1);
+            return `${EMOJIS[choice] || ""} ${label}`;
         }
 
-        function setMode(selectedMode) {
-            mode = selectedMode;
-            player1 = "";
-            player2 = "";
-            waiting = false;
-
-            const oppEmoji = mode === "two" ? "👥" : "🤖";
-            const oppName = mode === "two" ? "Player 2" : "Computer";
+        function setMode(newMode) {
+            mode = newMode;
+            const isTwo = mode === "two";
 
             document.getElementById("modeTitle").innerHTML =
-                mode === "two" ? "👥 Mode: Two Players" : "🤖 Mode: Play With Computer";
+                isTwo ? "👥 Mode: Two Players" : "🤖 Mode: Play With Computer";
             document.getElementById("opponentTitle").innerHTML =
-                `${oppEmoji} ${oppName}`;
+                isTwo ? "👥 Player 2" : "🤖 Computer";
             document.getElementById("player2Controls").style.display =
-                mode === "two" ? "block" : "none";
-            document.getElementById("player1Choice").innerHTML =
-                "👤 Player 1: ⏳ Waiting...";
-            document.getElementById("player2Choice").innerHTML =
-                `${oppEmoji} ${oppName}: ⏳ Waiting...`;
-            document.getElementById("result").innerHTML =
-                mode === "two" ? "👥 Both players: pick your move!" : "👤 Player 1: pick your move!";
+                isTwo ? "block" : "none";
+
+            restartGame();
         }
 
         function selectChoice(playerNum, choice) {
@@ -123,16 +111,18 @@
 
             if (playerNum === 1) {
                 player1 = choice;
-                document.getElementById("player1Choice").innerHTML =
-                    mode === "two"
-                        ? "👤 Player 1: 🔒 Selected"
-                        : `👤 Player 1: ${formatChoice(choice)}`;
                 if (mode === "computer") {
-                    const moves = ["rock", "paper", "scissors"];
-                    player2 = moves[Math.floor(Math.random() * moves.length)];
+                    const choices = ["rock", "paper", "scissors"];
+                    player2 = choices[Math.floor(Math.random() * choices.length)];
                     playRound();
-                } else if (player2) {
-                    playRound();
+                } else {
+                    document.getElementById("player1Choice").innerHTML =
+                        "👤 Player 1: 🔒 Selected";
+                    document.getElementById("result").innerHTML =
+                        "⏳ Waiting for Player 2...";
+                    if (player2) {
+                        playRound();
+                    }
                 }
             } else if (playerNum === 2 && mode === "two") {
                 player2 = choice;
@@ -140,6 +130,9 @@
                     "👥 Player 2: 🔒 Selected";
                 if (player1) {
                     playRound();
+                } else {
+                    document.getElementById("result").innerHTML =
+                        "⏳ Waiting for Player 1...";
                 }
             }
         }
@@ -152,7 +145,7 @@
 
             if (p1 === p2) {
                 localState.draws += 1;
-                resultText = `🤝 It's a Draw! ${EMOJIS[p1] || ""} vs ${EMOJIS[p2] || ""}`;
+                resultText = `🤝 It's a Draw! ${EMOJIS[p1]} vs ${EMOJIS[p2]}`;
             } else if (
                 (p1 === "rock" && p2 === "scissors") ||
                 (p1 === "paper" && p2 === "rock") ||
@@ -179,43 +172,22 @@
             };
         }
 
-        async function playRound() {
+        function playRound() {
             waiting = true;
             try {
-                let data;
-                try {
-                    const response = await fetch("/play", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            mode: mode,
-                            player1: player1,
-                            player2: player2
-                        })
-                    });
-                    if (!response.ok) {
-                        throw new Error("Server returned " + response.status);
-                    }
-                    data = await response.json();
-                } catch (_networkErr) {
-                    data = evaluateLocalRound(player1, player2);
-                }
-
+                const data = evaluateLocalRound(player1, player2);
                 const oppEmoji = mode === "two" ? "👥" : "🤖";
-                const oppName = data.opponent_name || (mode === "two" ? "Player 2" : "Computer");
 
                 document.getElementById("player1Choice").innerHTML =
                     `👤 Player 1: ${formatChoice(data.player1)}`;
                 document.getElementById("player2Choice").innerHTML =
-                    `${oppEmoji} ${oppName}: ${formatChoice(data.player2)}`;
+                    `${oppEmoji} ${data.opponent_name}: ${formatChoice(data.player2)}`;
                 document.getElementById("result").innerHTML = data.result;
                 document.getElementById("score1").innerHTML = data.player1_score;
                 document.getElementById("score2").innerHTML =
                     mode === "two" ? data.player2_score : data.computer_score;
                 document.getElementById("draws").innerHTML = data.draws;
                 document.getElementById("round").innerHTML = `🎲 Round: ${data.round}`;
-            } catch (error) {
-                document.getElementById("result").innerHTML = `⚠️ ${error.message}`;
             } finally {
                 player1 = "";
                 player2 = "";
@@ -223,28 +195,30 @@
             }
         }
 
-        async function restartGame() {
-            try {
-                await fetch("/restart", { method: "POST" }).catch(() => {});
-                player1 = "";
-                player2 = "";
-                waiting = false;
-                localState = { round: 0, player1_score: 0, player2_score: 0, computer_score: 0, draws: 0 };
+        function restartGame() {
+            player1 = "";
+            player2 = "";
+            waiting = false;
+            localState = {
+                round: 0,
+                player1_score: 0,
+                player2_score: 0,
+                computer_score: 0,
+                draws: 0
+            };
 
-                const oppEmoji = mode === "two" ? "👥" : "🤖";
-                const oppName = mode === "two" ? "Player 2" : "Computer";
+            const oppEmoji = mode === "two" ? "👥" : "🤖";
+            const oppName = mode === "two" ? "Player 2" : "Computer";
 
-                document.getElementById("score1").innerHTML = "0";
-                document.getElementById("score2").innerHTML = "0";
-                document.getElementById("draws").innerHTML = "0";
-                document.getElementById("round").innerHTML = "🎲 Round: 0";
-                document.getElementById("player1Choice").innerHTML = "👤 Player 1: ⏳ Waiting...";
-                document.getElementById("player2Choice").innerHTML = `${oppEmoji} ${oppName}: ⏳ Waiting...`;
-                document.getElementById("result").innerHTML = "🔄 Game Restarted! 🎮";
-            } catch (error) {
-                document.getElementById("result").innerHTML = `⚠️ ${error.message}`;
-            }
+            document.getElementById("score1").innerHTML = "0";
+            document.getElementById("score2").innerHTML = "0";
+            document.getElementById("draws").innerHTML = "0";
+            document.getElementById("round").innerHTML = "🎲 Round: 0";
+            document.getElementById("player1Choice").innerHTML = "👤 Player 1: ⏳ Waiting...";
+            document.getElementById("player2Choice").innerHTML = `${oppEmoji} ${oppName}: ⏳ Waiting...`;
+            document.getElementById("result").innerHTML = "🎮 Make a move to start!";
         }
     </script>
 </body>
 </html>
+
